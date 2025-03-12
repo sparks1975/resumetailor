@@ -1,0 +1,63 @@
+.container {
+  margin: 20px auto;
+  max-width: 600px;
+}
+
+.dropzone {
+  padding: 40px;
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    border-color: #007bff;
+    background-color: #f0f8ff;
+  }
+
+  &.active {
+    border-color: #28a745;
+    background-color: #e6ffe6;
+  }
+
+  p {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #666;
+  }
+}
+
+.notification {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #e6ffe6;
+  border: 1px solid #28a745;
+  border-radius: 4px;
+  color: #28a745;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.checkmark {
+  font-size: 1.2rem;
+  color: #28a745;
+}
+
+.clearButton {
+  margin-left: 10px;
+  background: none;
+  border: none;
+  color: #28a745;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: underline;
+
+  &:hover {
+    color: #218838; // Slightly darker green on hover
+  }
+}

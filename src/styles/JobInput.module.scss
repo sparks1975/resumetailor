@@ -1,0 +1,31 @@
+.container {
+    margin: 20px 0;
+    text-align: left;
+    max-width: 600px;
+  
+    label {
+      display: block;
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+      color: #333;
+    }
+  
+    .input {
+      width: 100%;
+      padding: 10px;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+      transition: border-color 0.3s ease;
+  
+      &:focus {
+        border-color: #007bff;
+        outline: none;
+      }
+  
+      &::placeholder {
+        color: #999;
+      }
+    }
+  }
