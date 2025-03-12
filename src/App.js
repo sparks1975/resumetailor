@@ -26,7 +26,7 @@ function App() {
       formData.append('resume', resumeFile);
       formData.append('reformat', reformatResume);
 
-      console.log('Sending request to backend with URL:', jobUrl, 'Reformat:', reformatResume);
+      console.log('Sending request to:', `${API_BASE_URL}/scrape-job`, 'Reformat:', reformatResume);
       const response = await axios.post(`${API_BASE_URL}/scrape-job`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -38,7 +38,12 @@ function App() {
         coverLetter: `data:application/pdf;base64,${response.data.coverLetter}`,
       });
     } catch (error) {
-      console.error('Axios error:', error.message, error.code, error.response?.data036);
+      console.error('Axios error:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       alert(`Failed to process: ${error.message}${error.response?.data?.details ? ' - ' + error.response.data.details : ''}`);
     } finally {
       setIsLoading(false);

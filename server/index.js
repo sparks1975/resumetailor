@@ -7,26 +7,27 @@ const pdfParse = require('pdf-parse');
 const natural = require('natural');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config(); // Load environment variables
+require('dotenv').config();
 
 const app = express();
 
-// Configure CORS dynamically
+// Dynamic CORS configuration
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:3000', // Production or local fallback
+  process.env.FRONTEND_URL || 'http://localhost:3000',
 ];
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error(`CORS policy: Origin ${origin} not allowed`));
     }
   },
 }));
 app.use(express.json());
 
-const upload = multer({ dest: 'uploads/' });
+// Configure multer with temporary directory
+const upload = multer({ dest: process.env.TEMP_DIR || 'uploads/' });
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 function sanitizeText(text) {
@@ -217,18 +218,20 @@ app.post('/scrape-job', upload.single('resume'), async (req, res) => {
   const { url, reformat } = req.body;
   const resumeFile = req.file;
   console.log('Received URL:', url, 'Reformat:', reformat);
-  console.log('Resume file:', resumeFile);
+  console.log('Resume file:', resumeFile ? resumeFile.path : 'No file uploaded');
 
   if (!url || !url.includes('linkedin.com/jobs') || !resumeFile) {
     console.log('Invalid input provided');
     return res.status(400).json({ error: 'Please provide a valid LinkedIn job URL and resume' });
   }
 
+  let browser;
   try {
     console.log('Launching Puppeteer...');
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: process.env.NODE_ENV === 'production' ? ['--no-sandbox', '--disable-setuid-sandbox'] : [], // Production args for Puppeteer
+    browser = await puppeteer.launch({
+      headless: 'new', // Use new headless mode
+      args: process.env.NODE_ENV === 'production' ? ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] : [],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, // Use if set (e.g., for custom Chromium)
     });
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
@@ -244,9 +247,8 @@ app.post('/scrape-job', upload.single('resume'), async (req, res) => {
       return { title, company, description };
     });
     console.log('Scraped data:', jobData);
-    await browser.close();
 
-    const resumePath = req.file.path;
+    const resumePath = resumeFile.path;
     const resumeBuffer = fs.readFileSync(resumePath);
     const resumeData = await pdfParse(resumeBuffer);
     let resumeText = resumeData.text;
@@ -301,11 +303,14 @@ app.post('/scrape-job', upload.single('resume'), async (req, res) => {
       coverLetter: Buffer.from(coverLetterBytes).toString('base64'),
     });
 
+    // Cleanup files
     fs.unlinkSync(resumePath);
     fs.unlinkSync(coverLetterPath);
   } catch (error) {
-    console.error('Processing error:', error.message);
+    console.error('Processing error:', error.stack);
     res.status(500).json({ error: 'Failed to process job data or resume', details: error.message });
+  } finally {
+    if (browser) await browser.close().catch(err => console.error('Browser close error:', err));
   }
 });
 
