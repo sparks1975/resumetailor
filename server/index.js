@@ -7,9 +7,23 @@ const pdfParse = require('pdf-parse');
 const natural = require('natural');
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config(); // Load environment variables
 
 const app = express();
-app.use(cors({ origin: 'http://localhost:3000' }));
+
+// Configure CORS dynamically
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:3000', // Production or local fallback
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+}));
 app.use(express.json());
 
 const upload = multer({ dest: 'uploads/' });
@@ -19,7 +33,6 @@ function sanitizeText(text) {
   return text.replace(/[^\x00-\x7F]/g, '');
 }
 
-// Analyze job description
 function analyzeJobDescription(description) {
   const tokenizer = new natural.WordTokenizer();
   const words = tokenizer.tokenize(description.toLowerCase());
@@ -38,7 +51,6 @@ function analyzeJobDescription(description) {
   return { skills: matchedSkills, experience };
 }
 
-// Analyze resume and match to job
 function analyzeResume(resumeText, jobAnalysis) {
   const tokenizer = new natural.WordTokenizer();
   const words = tokenizer.tokenize(resumeText.toLowerCase());
@@ -68,7 +80,6 @@ function analyzeResume(resumeText, jobAnalysis) {
   };
 }
 
-// Update resume body (original formatting)
 function updateResumeBody(resumeText, resumeAnalysis, jobTitle, company) {
   const lines = resumeText.split('\n');
   const tailoredExperience = `Experience: Applied ${resumeAnalysis.experience} to projects aligned with ${jobTitle} at ${company}`;
@@ -154,29 +165,24 @@ function updateResumeBody(resumeText, resumeAnalysis, jobTitle, company) {
   return sanitizeText(updatedLines.join('\n'));
 }
 
-// Reformat resume into a standard style
 function reformatResume(resumeText, resumeAnalysis, jobTitle, company) {
   const doc = new PDFDocument({ size: 'LETTER' });
   let buffer = [];
   doc.on('data', chunk => buffer.push(chunk));
   doc.on('end', () => buffer = Buffer.concat(buffer));
 
-  // Extract basic info (assuming name is first line, contact info follows)
   const lines = resumeText.split('\n');
   const name = lines[0].trim() || 'Your Name';
   const contactInfo = lines.slice(1, 3).filter(line => line.trim()).join(' | ') || 'email@example.com | (123) 456-7890';
 
-  // Header
   doc.fontSize(16).text(name, { align: 'center' });
   doc.fontSize(10).text(contactInfo, { align: 'center' });
   doc.moveDown();
 
-  // Professional Summary
   doc.fontSize(12).text('Professional Summary', { underline: true });
   doc.fontSize(10).text(resumeAnalysis.emphasis, { indent: 20 });
   doc.moveDown();
 
-  // Skills
   doc.fontSize(12).text('Skills', { underline: true });
   doc.fontSize(10);
   resumeAnalysis.skills.forEach(skill => {
@@ -184,7 +190,6 @@ function reformatResume(resumeText, resumeAnalysis, jobTitle, company) {
   });
   doc.moveDown();
 
-  // Experience (basic extraction, could be enhanced)
   doc.fontSize(12).text('Experience', { underline: true });
   doc.fontSize(10).text(`Applied ${resumeAnalysis.experience} to projects aligned with ${jobTitle} at ${company}`, { indent: 20 });
   const experienceSection = lines.findIndex(line => /experience|work experience|professional experience/i.test(line));
@@ -194,7 +199,6 @@ function reformatResume(resumeText, resumeAnalysis, jobTitle, company) {
   }
   doc.moveDown();
 
-  // Education (basic extraction, could be enhanced)
   doc.fontSize(12).text('Education', { underline: true });
   const educationSection = lines.findIndex(line => /education|degree/i.test(line));
   if (educationSection !== -1) {
@@ -222,7 +226,10 @@ app.post('/scrape-job', upload.single('resume'), async (req, res) => {
 
   try {
     console.log('Launching Puppeteer...');
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: process.env.NODE_ENV === 'production' ? ['--no-sandbox', '--disable-setuid-sandbox'] : [], // Production args for Puppeteer
+    });
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
     console.log('Navigating to URL:', url);
@@ -252,11 +259,9 @@ app.post('/scrape-job', upload.single('resume'), async (req, res) => {
 
     let modifiedResumeBytes;
     if (reformat === 'true') {
-      // Reformat into standard style, pass jobData.title explicitly
       modifiedResumeBytes = await reformatResume(resumeText, resumeAnalysis, jobData.title, jobData.company);
       console.log('Reformatted resume into standard style');
     } else {
-      // Keep original formatting with updates
       const updatedResumeText = updateResumeBody(resumeText, resumeAnalysis, jobData.title, jobData.company);
       const modifiedResumePath = path.join(__dirname, 'uploads', 'modified_resume.pdf');
       const modifiedResumeDoc = new PDFDocument({ size: 'LETTER' });

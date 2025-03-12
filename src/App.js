@@ -5,6 +5,8 @@ import JobInput from './components/JobInput';
 import ResumeUpload from './components/ResumeUpload';
 import ResultDisplay from './components/ResultDisplay';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
 function App() {
   const [jobUrl, setJobUrl] = useState('');
   const [resumeFile, setResumeFile] = useState(null);
@@ -25,7 +27,7 @@ function App() {
       formData.append('reformat', reformatResume);
 
       console.log('Sending request to backend with URL:', jobUrl, 'Reformat:', reformatResume);
-      const response = await axios.post('http://localhost:5001/scrape-job', formData, {
+      const response = await axios.post(`${API_BASE_URL}/scrape-job`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       console.log('Response received:', response.data);
@@ -36,7 +38,7 @@ function App() {
         coverLetter: `data:application/pdf;base64,${response.data.coverLetter}`,
       });
     } catch (error) {
-      console.error('Axios error:', error.message, error.code, error.response?.data);
+      console.error('Axios error:', error.message, error.code, error.response?.data036);
       alert(`Failed to process: ${error.message}${error.response?.data?.details ? ' - ' + error.response.data.details : ''}`);
     } finally {
       setIsLoading(false);
